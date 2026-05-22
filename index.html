@@ -1,0 +1,531 @@
+# Chroni-KoboToolBox-
+App
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>🏥 MediTrack - Gestion Maladies Chroniques</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --primary-color: #667eea;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --info: #17a2b8;
+            --dark: #1a1a2e;
+            --kobo: #00a99d;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; min-height: 100vh; }
+        /* Auth Pages */
+        .auth-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; }
+        .auth-card { background: white; border-radius: 20px; padding: 40px; width: 100%; max-width: 450px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: fadeIn 0.5s ease; }
+        .auth-card .logo { text-align: center; font-size: 64px; margin-bottom: 20px; }
+        .auth-card h2 { text-align: center; margin-bottom: 30px; color: #333; }
+        .auth-card .form-group { margin-bottom: 20px; }
+        .auth-card input, .auth-card select { width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; }
+        .auth-card button { width: 100%; padding: 12px; font-size: 16px; margin-top: 10px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 10px; cursor: pointer; }
+        .auth-link { text-align: center; margin-top: 20px; color: #666; cursor: pointer; }
+        .auth-link span { color: #667eea; font-weight: bold; }
+        /* App Container */
+        .app-container { display: flex; min-height: 100vh; }
+        /* Sidebar */
+        .sidebar { width: 280px; background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%); color: white; position: fixed; height: 100vh; overflow-y: auto; transition: all 0.3s; z-index: 1000; box-shadow: 2px 0 20px rgba(0,0,0,0.1); }
+        .menu-toggle { display: none; position: fixed; top: 15px; left: 15px; z-index: 1001; background: var(--primary); border: none; width: 45px; height: 45px; border-radius: 12px; color: white; font-size: 24px; cursor: pointer; }
+        .sidebar-header { padding: 25px 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sidebar-header .logo { font-size: 48px; margin-bottom: 10px; }
+        .sidebar-header h2 { font-size: 1.3rem; }
+        .user-profile-mini { padding: 15px 20px; background: rgba(255,255,255,0.1); margin: 15px; border-radius: 12px; display: flex; align-items: center; gap: 12px; }
+        .user-avatar-mini { width: 45px; height: 45px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        .user-info-mini h4 { font-size: 14px; margin-bottom: 3px; }
+        .user-info-mini p { font-size: 11px; opacity: 0.7; }
+        .nav-menu { list-style: none; padding: 0; margin-bottom: 20px; }
+        .nav-item { margin: 5px 15px; border-radius: 12px; transition: all 0.3s; cursor: pointer; }
+        .nav-item:hover { background: rgba(255,255,255,0.1); }
+        .nav-item.active { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .nav-link { display: flex; align-items: center; padding: 12px 20px; color: white; gap: 12px; }
+        .nav-icon { font-size: 20px; min-width: 24px; text-align: center; }
+        .nav-text { flex: 1; font-size: 14px; }
+        .nav-badge { background: var(--danger); border-radius: 20px; padding: 2px 8px; font-size: 10px; font-weight: bold; }
+        /* Main Content */
+        .main-content { flex: 1; margin-left: 280px; padding: 20px; transition: all 0.3s; }
+        .top-bar { background: white; border-radius: 15px; padding: 15px 25px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .page-title { font-size: 24px; font-weight: 600; color: #333; }
+        .user-actions { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .logout-btn { background: var(--danger); padding: 8px 16px; border-radius: 8px; color: white; border: none; cursor: pointer; }
+        .kobo-btn { background: #00a99d; padding: 8px 16px; border-radius: 8px; color: white; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+        /* Cards */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 25px; }
+        .stat-card { background: white; border-radius: 15px; padding: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); transition: transform 0.3s; cursor: pointer; }
+        .stat-card:hover { transform: translateY(-3px); }
+        .stat-value { font-size: 28px; font-weight: bold; color: #333; }
+        .section-card { background: white; border-radius: 15px; padding: 20px; margin-bottom: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); animation: fadeIn 0.3s ease; }
+        .section-title { font-size: 18px; font-weight: 600; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; color: #333; border-left: 4px solid #667eea; padding-left: 15px; }
+        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 500; color: #555; font-size: 13px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+        button { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; transition: all 0.3s; }
+        button:hover { transform: translateY(-2px); }
+        .btn-danger { background: #dc3545; }
+        .btn-success { background: #28a745; }
+        .btn-info { background: #17a2b8; }
+        .btn-warning { background: #ffc107; color: #333; }
+        .btn-kobo { background: #00a99d; }
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 500px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f8f9fa; font-weight: 600; }
+        .alert { padding: 12px 15px; border-radius: 8px; margin-bottom: 15px; animation: fadeIn 0.3s; }
+        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert-danger { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .alert-warning { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .alert-info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .chart-container { height: 300px; position: relative; }
+        .filter-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: flex-end; }
+        .export-buttons { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .device-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px; }
+        .device-card { background: #f8f9fa; border-radius: 12px; padding: 15px; text-align: center; cursor: pointer; transition: all 0.3s; border: 2px solid transparent; }
+        .device-card:hover { transform: translateY(-3px); box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+        .device-card.connected { border-color: #28a745; background: #d4edda; }
+        .device-icon { font-size: 36px; margin-bottom: 10px; }
+        .device-value { font-size: 20px; font-weight: bold; margin: 8px 0; }
+        .symptom-tag { display: inline-block; background: #e9ecef; padding: 6px 14px; border-radius: 20px; margin: 4px; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+        .symptom-tag.selected { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+        .role-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
+        .role-admin { background: #dc3545; color: white; }
+        .role-medecin { background: #28a745; color: white; }
+        .role-fosa { background: #17a2b8; color: white; }
+        .role-patient { background: #6c757d; color: white; }
+        .status-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; }
+        .status-synced { background: #28a745; color: white; }
+        /* Map Styles */
+        #burundiMap { height: 500px; width: 100%; border-radius: 15px; z-index: 1; }
+        .map-legend { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 10px; }
+        .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+        .legend-color { width: 20px; height: 20px; border-radius: 4px; }
+        .province-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; margin-top: 20px; }
+        .province-card { background: #f8f9fa; border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.3s; border-left: 4px solid #667eea; }
+        .province-card:hover { transform: translateX(5px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .province-name { font-weight: bold; font-size: 16px; margin-bottom: 10px; }
+        .province-count { font-size: 24px; font-weight: bold; color: #667eea; }
+        .gps-location { background: #e8f4fd; border-radius: 10px; padding: 10px; margin-top: 10px; font-family: monospace; font-size: 12px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; justify-content: center; align-items: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; border-radius: 20px; padding: 25px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+        .close-modal { cursor: pointer; font-size: 24px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @media (max-width: 768px) {
+            .menu-toggle { display: block; }
+            .sidebar { transform: translateX(-100%); width: 280px; }
+            .sidebar.open { transform: translateX(0); }
+            .main-content { margin-left: 0; padding: 70px 15px 15px 15px; }
+            .stats-grid { grid-template-columns: 1fr; }
+            #burundiMap { height: 350px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script>
+        // ============ PROVINCES DU BURUNDI ============
+        const provincesBurundi = [
+            { id: 1, name: 'Bubanza', capital: 'Bubanza', coordinates: [-3.0833, 29.3667], population: 338023, cases: 1245 },
+            { id: 2, name: 'Bujumbura Mairie', capital: 'Bujumbura', coordinates: [-3.3822, 29.3644], population: 1200000, cases: 3421 },
+            { id: 3, name: 'Bujumbura Rural', capital: 'Bujumbura', coordinates: [-3.4833, 29.3333], population: 555933, cases: 1876 },
+            { id: 4, name: 'Bururi', capital: 'Bururi', coordinates: [-3.9500, 29.6167], population: 574013, cases: 982 },
+            { id: 5, name: 'Cankuzo', capital: 'Cankuzo', coordinates: [-3.2167, 30.5500], population: 228873, cases: 456 },
+            { id: 6, name: 'Cibitoke', capital: 'Cibitoke', coordinates: [-2.8833, 29.1167], population: 460435, cases: 789 },
+            { id: 7, name: 'Gitega', capital: 'Gitega', coordinates: [-3.4264, 29.9306], population: 725223, cases: 2156 },
+            { id: 8, name: 'Karuzi', capital: 'Karuzi', coordinates: [-3.1000, 30.1667], population: 436443, cases: 567 },
+            { id: 9, name: 'Kayanza', capital: 'Kayanza', coordinates: [-2.9167, 29.6167], population: 585412, cases: 1234 },
+            { id: 10, name: 'Kirundo', capital: 'Kirundo', coordinates: [-2.5833, 30.1000], population: 628256, cases: 876 },
+            { id: 11, name: 'Makamba', capital: 'Makamba', coordinates: [-4.1333, 29.8000], population: 430899, cases: 543 },
+            { id: 12, name: 'Muramvya', capital: 'Muramvya', coordinates: [-3.2500, 29.6167], population: 292589, cases: 432 },
+            { id: 13, name: 'Muyinga', capital: 'Muyinga', coordinates: [-2.8500, 30.3333], population: 632409, cases: 987 },
+            { id: 14, name: 'Mwaro', capital: 'Mwaro', coordinates: [-3.5167, 29.7000], population: 273143, cases: 345 },
+            { id: 15, name: 'Ngozi', capital: 'Ngozi', coordinates: [-2.9000, 29.8333], population: 660717, cases: 1567 },
+            { id: 16, name: 'Rumonge', capital: 'Rumonge', coordinates: [-3.9667, 29.4333], population: 352026, cases: 678 },
+            { id: 17, name: 'Rutana', capital: 'Rutana', coordinates: [-3.9167, 30.0000], population: 333510, cases: 456 },
+            { id: 18, name: 'Ruyigi', capital: 'Ruyigi', coordinates: [-3.4667, 30.2500], population: 400530, cases: 534 }
+        ];
+
+        // ============ DONNÉES GPS ============
+        let gpsLocations = [
+            { id: 1, patient_id: 2, province: 'Bujumbura Mairie', lat: -3.3822, lng: 29.3644, date: '2025-05-20', symptomes: ['Maux de tête', 'Fatigue'], maladie: 'hypertension' },
+            { id: 2, patient_id: 2, province: 'Bujumbura Mairie', lat: -3.3750, lng: 29.3600, date: '2025-05-18', symptomes: ['Vertiges'], maladie: 'hypertension' },
+            { id: 3, patient_id: 3, province: 'Gitega', lat: -3.4264, lng: 29.9306, date: '2025-05-19', symptomes: ['Nausées', 'Fatigue'], maladie: 'diabete' }
+        ];
+
+        function updateProvinceCases() {
+            const casesByProvince = {};
+            gpsLocations.forEach(loc => { casesByProvince[loc.province] = (casesByProvince[loc.province] || 0) + 1; });
+            provincesBurundi.forEach(p => { p.cases = casesByProvince[p.name] || Math.floor(Math.random() * 500) + 100; });
+        }
+        updateProvinceCases();
+
+        // ============ ROLES ============
+        const ROLES = { ADMIN: 'admin', MEDECIN: 'medecin', FOSA: 'fosa', PATIENT: 'patient' };
+        const PERMISSIONS = {
+            [ROLES.ADMIN]: ['dashboard', 'symptoms', 'nutrition', 'measures', 'treatments', 'iot', 'telemedecine', 'appointments', 'reports', 'predictive', 'users', 'profile', 'kobo', 'map'],
+            [ROLES.MEDECIN]: ['dashboard', 'symptoms', 'nutrition', 'measures', 'treatments', 'iot', 'telemedecine', 'appointments', 'reports', 'predictive', 'profile', 'kobo', 'map'],
+            [ROLES.FOSA]: ['dashboard', 'symptoms', 'nutrition', 'measures', 'treatments', 'appointments', 'reports', 'profile', 'kobo', 'map'],
+            [ROLES.PATIENT]: ['dashboard', 'symptoms', 'nutrition', 'measures', 'treatments', 'appointments', 'profile', 'map']
+        };
+
+        // ============ UTILISATEURS ============
+        let users = [
+            { id: 1, nom: 'Admin', prenom: 'System', email: 'admin@meditrack.com', password: 'admin123', role: ROLES.ADMIN, telephone: '0102030405', province: 'Bujumbura Mairie' },
+            { id: 2, nom: 'Dupont', prenom: 'Jean', email: 'jean.dupont@email.com', password: 'pass123', role: ROLES.PATIENT, telephone: '0612345678', province: 'Bujumbura Mairie' },
+            { id: 3, nom: 'Martin', prenom: 'Sophie', email: 'sophie.martin@email.com', password: 'pass123', role: ROLES.PATIENT, telephone: '0687654321', province: 'Gitega' },
+            { id: 4, nom: 'Lambert', prenom: 'Marie', email: 'marie.lambert@email.com', password: 'pass123', role: ROLES.MEDECIN, telephone: '0698765432', province: 'Bujumbura Mairie' },
+            { id: 5, nom: 'Kouadio', prenom: 'Paul', email: 'paul.kouadio@email.com', password: 'pass123', role: ROLES.FOSA, telephone: '0756789012', province: 'Ngozi' }
+        ];
+
+        let currentUser = null;
+
+        // ============ KOBO CONFIG ============
+        let koboConfig = { apiUrl: 'https://kf.kobotoolbox.org', apiToken: '', formId: '', webhookUrl: 'http://localhost:3000/webhook/kobo-submission', lastSync: null };
+
+        // ============ DONNÉES APP ============
+        let appData = {
+            symptomes: [], repas: [], mesures: [], traitements: [], rendez_vous: [], iotDevices: [], consultations: [],
+            koboSubmissions: [], koboWebhookLogs: []
+        };
+
+        function initData() {
+            appData.traitements = [
+                { id: 1, patient_id: 2, nom: 'Metformine', dosage: '500mg', frequence: '2x/jour', actif: true, heure_prise: '08:00,20:00' },
+                { id: 2, patient_id: 2, nom: 'Lisinopril', dosage: '10mg', frequence: '1x/jour', actif: true, heure_prise: '08:00' },
+                { id: 3, patient_id: 3, nom: 'Insuline', dosage: '10UI', frequence: '2x/jour', actif: true, heure_prise: '08:00,20:00' }
+            ];
+            appData.rendez_vous = [
+                { id: 1, patient_id: 2, medecin_id: 4, medecin_nom: 'Dr. Lambert Marie', date: '2025-06-15T10:00', motif: 'Contrôle tension', status: 'confirmé', type: 'presentiel' },
+                { id: 2, patient_id: 3, medecin_id: 4, medecin_nom: 'Dr. Lambert Marie', date: '2025-06-20T14:30', motif: 'Bilan glycémique', status: 'confirmé', type: 'visio' }
+            ];
+            appData.iotDevices = [
+                { id: 1, patient_id: 2, name: 'Tensiomètre Omron', type: 'bp', icon: '🩺', connected: true, last_value: '125/82', unit: 'mmHg' },
+                { id: 2, patient_id: 2, name: 'Glucomètre Accu-Chek', type: 'glucose', icon: '🍬', connected: true, last_value: '1.18', unit: 'g/L' }
+            ];
+            for (let i = 0; i < 30; i++) {
+                const date = new Date(); date.setDate(date.getDate() - i);
+                appData.mesures.push({ id: appData.mesures.length + 1, patient_id: 2, date: date.toISOString().split('T')[0], tension_systolique: 115 + Math.floor(Math.random() * 25), tension_diastolique: 75 + Math.floor(Math.random() * 15), glycemie: (1.00 + Math.random() * 0.5).toFixed(2), poids: (72 + Math.random() * 4).toFixed(1), temperature: (36.5 + Math.random() * 1).toFixed(1), source: 'manuel' });
+            }
+            appData.symptomes = [
+                { id: 1, patient_id: 2, date: '2025-05-20', symptomes: ['Maux de tête', 'Fatigue'], intensite: 3, duree: '2 heures' },
+                { id: 2, patient_id: 2, date: '2025-05-18', symptomes: ['Vertiges'], intensite: 2, duree: '30 minutes' }
+            ];
+            appData.repas = [
+                { id: 1, patient_id: 2, date: '2025-05-20', type: 'petit-dejeuner', aliments: 'Pain complet, beurre, café', calories: 350, glucides: 45 }
+            ];
+            appData.koboSubmissions = [
+                { id: 1, submission_id: 'kobo_001', patient_id: 2, date: '2025-05-20', type: 'consultation', data: { tension: '128/84', glycemie: '1.15', poids: '73.5' }, status: 'synced' }
+            ];
+        }
+
+        // ============ FONCTIONS ============
+        function getPatientName(patientId) { const p = users.find(u => u.id === patientId && u.role === ROLES.PATIENT); return p ? `${p.prenom} ${p.nom}` : 'Inconnu'; }
+        function getCurrentUserPatients() {
+            if (currentUser.role === ROLES.ADMIN) return users.filter(u => u.role === ROLES.PATIENT);
+            if (currentUser.role === ROLES.MEDECIN) return users.filter(u => u.role === ROLES.PATIENT);
+            if (currentUser.role === ROLES.PATIENT) return [currentUser];
+            return [];
+        }
+
+        // ============ CARTE ============
+        let map = null;
+        function initBurundiMap() {
+            const mapContainer = document.getElementById('burundiMap');
+            if (!mapContainer) return;
+            if (map) map.remove();
+            map = L.map('burundiMap').setView([-3.5, 29.9], 8);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>' }).addTo(map);
+            provincesBurundi.forEach(province => {
+                const color = province.cases > 1000 ? '#dc3545' : (province.cases > 500 ? '#ffc107' : '#28a745');
+                const marker = L.circleMarker(province.coordinates, { radius: Math.sqrt(province.cases) / 3 + 8, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.7 }).addTo(map);
+                marker.bindPopup(`<div><strong>🏙️ ${province.name}</strong><br>Population: ${province.population.toLocaleString()}<br>Cas: ${province.cases}</div>`);
+                marker.on('click', () => filterByProvince(province.name));
+            });
+            gpsLocations.forEach(loc => {
+                const marker = L.marker([loc.lat, loc.lng]).addTo(map);
+                marker.bindPopup(`<div><strong>👤 ${getPatientName(loc.patient_id)}</strong><br>📅 ${loc.date}<br>🤒 ${loc.symptomes.join(', ')}</div>`);
+            });
+            map.invalidateSize();
+        }
+
+        function filterByProvince(provinceName) {
+            const province = provincesBurundi.find(p => p.name === provinceName);
+            alert(`📍 Province: ${provinceName}\n🏥 Cas: ${province?.cases || 0}`);
+            if (map && province) map.setView(province.coordinates, 10);
+        }
+
+        function addGPSLocation() {
+            if (!navigator.geolocation) { alert('Géolocalisation non supportée'); return; }
+            navigator.geolocation.getCurrentPosition(position => {
+                const province = document.getElementById('gpsProvince').value;
+                const symptomesSelect = document.getElementById('gpsSymptomes');
+                const selectedSymptomes = Array.from(symptomesSelect.selectedOptions).map(opt => opt.value);
+                gpsLocations.push({ id: gpsLocations.length + 1, patient_id: currentUser.id, province, lat: position.coords.latitude, lng: position.coords.longitude, date: new Date().toISOString().split('T')[0], symptomes: selectedSymptomes, maladie: document.getElementById('gpsMaladie').value });
+                updateProvinceCases();
+                alert('✅ Position GPS enregistrée !');
+                showPage('map');
+            }, error => alert('Erreur GPS: ' + error.message));
+        }
+
+        // ============ AUTH ============
+        function showLoginPage() {
+            document.getElementById('app').innerHTML = `
+                <div class="auth-container"><div class="auth-card"><div class="logo">🏥</div><h2>Connexion MediTrack</h2>
+                <div class="form-group"><input type="email" id="loginEmail" placeholder="Email" value="admin@meditrack.com"></div>
+                <div class="form-group"><input type="password" id="loginPassword" placeholder="Mot de passe" value="admin123"></div>
+                <button onclick="login()">Se connecter</button>
+                <div class="auth-link" onclick="showRegisterPage()">Pas encore de compte ? <span>S'inscrire</span></div>
+                <div style="margin-top:20px;font-size:12px;color:#999;text-align:center;"><p>Comptes démo: admin@meditrack.com / jean.dupont@email.com / marie.lambert@email.com (pass: pass123)</p></div></div></div>`;
+        }
+
+        function showRegisterPage() {
+            document.getElementById('app').innerHTML = `
+                <div class="auth-container"><div class="auth-card"><div class="logo">🏥</div><h2>Inscription</h2>
+                <div class="form-row"><div class="form-group"><input type="text" id="regNom" placeholder="Nom"></div><div class="form-group"><input type="text" id="regPrenom" placeholder="Prénom"></div></div>
+                <div class="form-group"><input type="email" id="regEmail" placeholder="Email"></div>
+                <div class="form-group"><input type="tel" id="regTelephone" placeholder="Téléphone"></div>
+                <div class="form-group"><input type="password" id="regPassword" placeholder="Mot de passe"></div>
+                <div class="form-group"><select id="regProvince">${provincesBurundi.map(p => `<option value="${p.name}">${p.name}</option>`).join('')}</select></div>
+                <div class="form-group"><select id="regRole"><option value="patient">Patient</option><option value="fosa">Agent FOSA</option></select></div>
+                <button onclick="register()">S'inscrire</button>
+                <div class="auth-link" onclick="showLoginPage()">Déjà un compte ? <span>Se connecter</span></div></div></div>`;
+        }
+
+        function login() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const user = users.find(u => u.email === email && u.password === password);
+            if (user) { currentUser = user; localStorage.setItem('currentUser', JSON.stringify(user)); initApp(); }
+            else alert('Email ou mot de passe incorrect');
+        }
+
+        function register() {
+            const nom = document.getElementById('regNom').value, prenom = document.getElementById('regPrenom').value, email = document.getElementById('regEmail').value;
+            const telephone = document.getElementById('regTelephone').value, password = document.getElementById('regPassword').value;
+            const province = document.getElementById('regProvince').value, role = document.getElementById('regRole').value;
+            if (!nom || !prenom || !email || !password) { alert('Remplissez tous les champs'); return; }
+            if (users.find(u => u.email === email)) { alert('Email déjà utilisé'); return; }
+            users.push({ id: users.length + 1, nom, prenom, email, password, role, telephone, province });
+            alert('Inscription réussie !'); showLoginPage();
+        }
+
+        function logout() { currentUser = null; localStorage.removeItem('currentUser'); showLoginPage(); }
+
+        // ============ RENDU PRINCIPAL ============
+        function initApp() {
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) { currentUser = JSON.parse(savedUser); if (!users.find(u => u.id === currentUser.id)) { logout(); return; } currentUser = users.find(u => u.id === currentUser.id); }
+            if (!currentUser) { showLoginPage(); return; }
+            initData();
+            renderMainApp();
+        }
+
+        function renderMainApp() {
+            const userPermissions = PERMISSIONS[currentUser.role] || PERMISSIONS[ROLES.PATIENT];
+            const menuItems = getMenuItems(userPermissions);
+            document.getElementById('app').innerHTML = `
+                <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+                <div class="app-container">
+                    <aside class="sidebar" id="sidebar">
+                        <div class="sidebar-header"><div class="logo">🏥</div><h2>MediTrack</h2><p style="font-size:11px;">Santé connectée + Carte Burundi</p></div>
+                        <div class="user-profile-mini"><div class="user-avatar-mini">${getAvatarIcon(currentUser.role)}</div><div class="user-info-mini"><h4>${currentUser.prenom} ${currentUser.nom}</h4><p>${getRoleLabel(currentUser.role)}</p></div></div>
+                        <ul class="nav-menu">${menuItems.map(item => `<li class="nav-item" data-page="${item.page}"><div class="nav-link"><span class="nav-icon">${item.icon}</span><span class="nav-text">${item.label}</span>${item.badge ? `<span class="nav-badge">${item.badge}</span>` : ''}</div></li>`).join('')}</ul>
+                    </aside>
+                    <main class="main-content">
+                        <div class="top-bar"><div class="page-title" id="pageTitle">Tableau de bord</div><div class="user-actions"><button class="kobo-btn" onclick="syncWithKobo()">🔄 Synchro Kobo</button><button class="logout-btn" onclick="logout()">Déconnexion</button></div></div>
+                        <div id="pageContent"></div>
+                    </main>
+                </div>
+                <div id="koboModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>📋 Configuration KoboToolbox</h3><span class="close-modal" onclick="closeKoboModal()">&times;</span></div>
+                <div class="form-group"><label>Token API</label><input type="password" id="koboApiToken" placeholder="Votre token API"></div>
+                <div class="form-group"><label>ID Formulaire</label><input type="text" id="koboFormId" placeholder="Asset UID"></div>
+                <div class="form-group"><label>Webhook URL</label><input type="text" id="koboWebhookUrl" value="${koboConfig.webhookUrl}"></div>
+                <button onclick="saveKoboConfig()">💾 Sauvegarder</button>
+                <button onclick="testKoboConnection()" style="margin-top:10px;background:#6c757d;">🔌 Tester la connexion</button></div></div>
+            `;
+            document.querySelectorAll('.nav-item').forEach(item => { item.addEventListener('click', () => { const page = item.dataset.page; if (page) showPage(page); }); });
+            window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('open');
+            window.logout = logout;
+            showPage('dashboard');
+        }
+
+        function getMenuItems(permissions) {
+            const allMenus = {
+                dashboard: { icon: '📊', label: 'Tableau de bord', page: 'dashboard' },
+                symptoms: { icon: '🤒', label: 'Symptômes', page: 'symptoms', badge: appData.symptomes.length },
+                nutrition: { icon: '🥗', label: 'Nutrition', page: 'nutrition' },
+                measures: { icon: '📈', label: 'Mesures', page: 'measures' },
+                treatments: { icon: '💊', label: 'Traitements', page: 'treatments' },
+                iot: { icon: '📡', label: 'Objets Connectés', page: 'iot' },
+                telemedecine: { icon: '🎥', label: 'Télémédecine', page: 'telemedecine' },
+                appointments: { icon: '📅', label: 'Rendez-vous', page: 'appointments' },
+                reports: { icon: '📄', label: 'Rapports', page: 'reports' },
+                predictive: { icon: '🤖', label: 'Analyse IA', page: 'predictive' },
+                users: { icon: '👥', label: 'Gestion utilisateurs', page: 'users' },
+                profile: { icon: '⚙️', label: 'Mon Profil', page: 'profile' },
+                kobo: { icon: '📋', label: 'KoboToolbox', page: 'kobo', badge: appData.koboSubmissions.length },
+                map: { icon: '🗺️', label: 'Carte Burundi', page: 'map' }
+            };
+            return permissions.map(p => allMenus[p]).filter(m => m);
+        }
+
+        function getAvatarIcon(role) {
+            switch(role) { case ROLES.ADMIN: return '👑'; case ROLES.MEDECIN: return '👨‍⚕️'; case ROLES.FOSA: return '👩‍⚕️'; default: return '👤'; }
+        }
+        function getRoleLabel(role) {
+            switch(role) { case ROLES.ADMIN: return 'Administrateur'; case ROLES.MEDECIN: return 'Médecin'; case ROLES.FOSA: return 'Agent FOSA'; default: return 'Patient'; }
+        }
+
+        // ============ AFFICHAGE DES PAGES ============
+        function showPage(page) {
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
+            const titles = { dashboard: 'Tableau de bord', symptoms: 'Mes symptômes', nutrition: 'Mon alimentation', measures: 'Mesures quotidiennes', treatments: 'Mes traitements', iot: 'Objets connectés', telemedecine: 'Télémédecine', appointments: 'Rendez-vous médicaux', reports: 'Rapports médicaux', predictive: 'Analyse IA prédictive', users: 'Gestion des utilisateurs', profile: 'Mon profil', kobo: 'KoboToolbox - Formulaires', map: 'Carte épidémiologique du Burundi' };
+            document.getElementById('pageTitle').innerText = titles[page] || page;
+            const contentDiv = document.getElementById('pageContent');
+            switch(page) {
+                case 'dashboard': contentDiv.innerHTML = renderDashboard(); setTimeout(initDashboardCharts, 100); break;
+                case 'map': contentDiv.innerHTML = renderMapPage(); setTimeout(() => initBurundiMap(), 100); break;
+                case 'symptoms': contentDiv.innerHTML = renderSymptoms(); break;
+                case 'nutrition': contentDiv.innerHTML = renderNutrition(); break;
+                case 'measures': contentDiv.innerHTML = renderMeasures(); break;
+                case 'treatments': contentDiv.innerHTML = renderTreatments(); break;
+                case 'iot': contentDiv.innerHTML = renderIoT(); break;
+                case 'telemedecine': contentDiv.innerHTML = renderTelemedecine(); break;
+                case 'appointments': contentDiv.innerHTML = renderAppointments(); break;
+                case 'reports': contentDiv.innerHTML = renderReports(); break;
+                case 'predictive': contentDiv.innerHTML = renderPredictive(); break;
+                case 'users': contentDiv.innerHTML = renderUsers(); break;
+                case 'profile': contentDiv.innerHTML = renderProfile(); break;
+                case 'kobo': contentDiv.innerHTML = renderKoboPage(); break;
+                default: contentDiv.innerHTML = renderDashboard();
+            }
+            if (window.innerWidth <= 768) document.getElementById('sidebar')?.classList.remove('open');
+        }
+
+        // ============ DASHBOARD ============
+        function renderDashboard() {
+            const patients = getCurrentUserPatients();
+            const totalCases = provincesBurundi.reduce((sum, p) => sum + p.cases, 0);
+            const lastMeasure = appData.mesures[0];
+            return `
+                <div class="stats-grid">
+                    <div class="stat-card" onclick="showPage('map')"><div><h4>Cas Burundi</h4><div class="stat-value">${totalCases}</div></div><div>🗺️</div></div>
+                    <div class="stat-card" onclick="showPage('measures')"><div><h4>Patients suivis</h4><div class="stat-value">${patients.length}</div></div><div>👥</div></div>
+                    <div class="stat-card" onclick="showPage('measures')"><div><h4>Dernière tension</h4><div class="stat-value">${lastMeasure?.tension_systolique || '--'}/${lastMeasure?.tension_diastolique || '--'}</div></div><div>🩺</div></div>
+                    <div class="stat-card" onclick="showPage('kobo')"><div><h4>Soumissions Kobo</h4><div class="stat-value">${appData.koboSubmissions.length}</div></div><div>📋</div></div>
+                </div>
+                <div class="section-card"><div class="section-title">📈 Évolution des mesures</div><div class="chart-container"><canvas id="evolutionChart"></canvas></div></div>
+                <div class="section-card"><div class="section-title">⚠️ Alertes récentes</div><div class="alert alert-success">✅ Aucune alerte critique</div></div>
+                <div class="section-card"><div class="section-title">📅 Prochains rendez-vous</div><div class="table-responsive"><table><thead><tr><th>Médecin</th><th>Date</th><th>Motif</th></tr></thead><tbody>${appData.rendez_vous.map(r => `<tr><td>${r.medecin_nom}</td><td>${new Date(r.date).toLocaleString()}</td><td>${r.motif}</td></tr>`).join('')}</tbody></table></div></div>
+            `;
+        }
+
+        function initDashboardCharts() {
+            const ctx = document.getElementById('evolutionChart')?.getContext('2d');
+            if (!ctx) return;
+            const data = appData.mesures.slice(0, 15).reverse();
+            new Chart(ctx, { type: 'line', data: { labels: data.map(m => m.date.split('-').slice(1).join('/')), datasets: [{ label: 'Tension systolique', data: data.map(m => m.tension_systolique), borderColor: '#667eea', tension: 0.3, fill: false }, { label: 'Glycémie (x10)', data: data.map(m => parseFloat(m.glycemie) * 10), borderColor: '#28a745', tension: 0.3, fill: false }] }, options: { responsive: true, maintainAspectRatio: true } });
+        }
+
+        // ============ MODULE CARTE ============
+        function renderMapPage() {
+            const userLocations = gpsLocations.filter(l => l.patient_id === currentUser.id || currentUser.role !== ROLES.PATIENT);
+            const totalCases = provincesBurundi.reduce((sum, p) => sum + p.cases, 0);
+            return `
+                <div class="stats-grid">
+                    <div class="stat-card"><div><h4>Cas enregistrés</h4><div class="stat-value">${totalCases}</div></div><div>🏥</div></div>
+                    <div class="stat-card"><div><h4>Provinces</h4><div class="stat-value">${provincesBurundi.length}</div></div><div>📍</div></div>
+                    <div class="stat-card"><div><h4>Points GPS</h4><div class="stat-value">${userLocations.length}</div></div><div>📡</div></div>
+                </div>
+                <div class="section-card"><div class="section-title">🗺️ Carte épidémiologique du Burundi</div><div id="burundiMap" style="height:500px;width:100%;border-radius:15px;"></div>
+                <div class="map-legend"><div class="legend-item"><div class="legend-color" style="background:#dc3545;"></div><span>Cas élevés (>1000)</span></div><div class="legend-item"><div class="legend-color" style="background:#ffc107;"></div><span>Cas modérés (500-1000)</span></div><div class="legend-item"><div class="legend-color" style="background:#28a745;"></div><span>Cas faibles (<500)</span></div><div class="legend-item"><div class="legend-color" style="background:#667eea; border-radius:50%;"></div><span>Patients GPS</span></div></div></div>
+                <div class="section-card"><div class="section-title">📍 Enregistrer ma position GPS</div>
+                <div class="form-row"><div class="form-group"><label>Province</label><select id="gpsProvince">${provincesBurundi.map(p => `<option value="${p.name}">${p.name}</option>`).join('')}</select></div>
+                <div class="form-group"><label>Maladie</label><select id="gpsMaladie"><option value="hypertension">Hypertension</option><option value="diabete">Diabète</option></select></div>
+                <div class="form-group"><label>Symptômes</label><select id="gpsSymptomes" multiple style="height:80px;"><option>Maux de tête</option><option>Fatigue</option><option>Vertiges</option><option>Nausées</option><option>Douleur thoracique</option></select></div></div>
+                <button onclick="addGPSLocation()" class="btn-success">📍 Enregistrer ma position</button></div>
+                <div class="section-card"><div class="section-title">📊 Statistiques par province</div><div class="province-stats">${provincesBurundi.map(p => `<div class="province-card" onclick="filterByProvince('${p.name}')"><div class="province-name">🏙️ ${p.name}</div><div class="province-count">${p.cases} cas</div><div style="font-size:12px;">Population: ${p.population.toLocaleString()}</div><div style="font-size:11px;">Prévalence: ${((p.cases / p.population) * 1000).toFixed(1)}/1000</div></div>`).join('')}</div></div>
+                <div class="section-card"><div class="section-title">📋 Localisations GPS</div><div class="table-responsive"><table><thead><tr><th>Patient</th><th>Province</th><th>Date</th><th>Symptômes</th><th>Coordonnées</th></tr></thead><tbody>${userLocations.map(l => `<tr><td>${getPatientName(l.patient_id)}</td><td>${l.province}</td><td>${l.date}</td><td>${l.symptomes.join(', ')}</td><td>${l.lat.toFixed(4)}, ${l.lng.toFixed(4)}</td></tr>`).join('')}</tbody></table></div></div>
+            `;
+        }
+
+        // ============ MODULE SYMPTÔMES ============
+        let selectedSymptoms = [];
+        function toggleSymptom(s) { const i = selectedSymptoms.indexOf(s); if(i===-1) selectedSymptoms.push(s); else selectedSymptoms.splice(i,1); document.querySelectorAll('.symptom-tag').forEach(t => { if(t.innerText===s) t.classList.toggle('selected'); }); }
+        function addSymptom() { const date=document.getElementById('symptomDate').value, intensite=document.getElementById('symptomIntensite').value; if(selectedSymptoms.length===0){alert('Sélectionnez un symptôme');return;} appData.symptomes.unshift({id:Date.now(), patient_id:currentUser.id, date, symptomes:[...selectedSymptoms], intensite:parseInt(intensite), duree:document.getElementById('symptomDuree').value}); selectedSymptoms=[]; showPage('symptoms'); document.getElementById('symptomsBadge') && (document.getElementById('symptomsBadge').innerText = appData.symptomes.length); }
+        function renderSymptoms() { const symptomList=['Maux de tête','Fatigue','Vertiges','Nausées','Douleur thoracique','Essoufflement','Fièvre','Toux']; return `<div class="section-card"><div class="section-title">🤒 Enregistrer un symptôme</div><div class="form-row"><div class="form-group"><label>Date</label><input type="date" id="symptomDate" value="${new Date().toISOString().split('T')[0]}"></div><div class="form-group"><label>Intensité (1-5)</label><select id="symptomIntensite">${[1,2,3,4,5].map(i=>`<option>${i}</option>`).join('')}</select></div><div class="form-group"><label>Durée</label><input type="text" id="symptomDuree" placeholder="2 heures"></div></div><div class="form-group"><label>Symptômes</label><div>${symptomList.map(s => `<span class="symptom-tag" onclick="toggleSymptom('${s}')">${s}</span>`).join('')}</div></div><button onclick="addSymptom()">💾 Enregistrer</button></div><div class="section-card"><div class="section-title">📋 Historique</div><div class="table-responsive"></td><thead><tr><th>Date</th><th>Symptômes</th><th>Intensité</th><th>Durée</th></tr></thead><tbody>${appData.symptomes.map(s => `<tr><td>${s.date}</td><td>${s.symptomes.join(', ')}</td><td>${s.intensite}/5</td><td>${s.duree}</td></tr>`).join('')}</tbody></table></div></div>`; }
+
+        // ============ MODULE NUTRITION ============
+        function renderNutrition() { return `<div class="section-card"><div class="section-title">🥗 Mon alimentation</div><div class="alert alert-info">Module de suivi nutritionnel - Journal alimentaire</div><div class="form-row"><div class="form-group"><label>Date</label><input type="date" id="mealDate" value="${new Date().toISOString().split('T')[0]}"></div><div class="form-group"><label>Type</label><select id="mealType"><option>petit-déjeuner</option><option>déjeuner</option><option>dîner</option></select></div><div class="form-group"><label>Calories</label><input type="number" id="mealCalories" placeholder="500"></div></div><div class="form-group"><label>Aliments</label><input type="text" id="mealAliments" placeholder="Poulet, riz, légumes" style="width:100%"></div><button onclick="alert('Fonctionnalité à venir')">➕ Ajouter</button></div>`; }
+
+        // ============ MODULE MESURES ============
+        function addMeasure() { const sys=document.getElementById('sysBP').value, dia=document.getElementById('diaBP').value; if(sys&&dia){ appData.mesures.unshift({id:Date.now(), patient_id:currentUser.id, date:new Date().toISOString().split('T')[0], tension_systolique:parseInt(sys), tension_diastolique:parseInt(dia), glycemie:document.getElementById('glucose')?.value||'1.00', poids:document.getElementById('weight')?.value||'70', temperature:'36.5', source:'manuel'}); showPage('measures'); } }
+        function renderMeasures() { return `<div class="section-card"><div class="section-title">➕ Ajouter une mesure</div><div class="form-row"><div class="form-group"><label>Tension systolique</label><input type="number" id="sysBP" placeholder="120"></div><div class="form-group"><label>Tension diastolique</label><input type="number" id="diaBP" placeholder="80"></div><div class="form-group"><label>Glycémie (g/L)</label><input type="number" step="0.01" id="glucose" placeholder="1.10"></div><div class="form-group"><label>Poids (kg)</label><input type="number" step="0.1" id="weight" placeholder="72.5"></div></div><button onclick="addMeasure()">✅ Enregistrer</button></div><div class="section-card"><div class="section-title">📋 Historique</div><div class="table-responsive"><table><thead><tr><th>Date</th><th>Tension</th><th>Glycémie</th><th>Poids</th></tr></thead><tbody>${appData.mesures.slice(0,20).map(m => `<tr><td>${m.date}</td><td>${m.tension_systolique}/${m.tension_diastolique}</td><td>${m.glycemie} g/L</td><td>${m.poids} kg</td></tr>`).join('')}</tbody></table></div></div>`; }
+
+        // ============ MODULE TRAITEMENTS ============
+        function addTreatment() { const nom=document.getElementById('treatmentNom').value; if(nom){ appData.traitements.push({id:Date.now(), patient_id:currentUser.id, nom, dosage:document.getElementById('treatmentDosage').value, frequence:document.getElementById('treatmentFrequence').value, actif:true}); showPage('treatments'); } }
+        function renderTreatments() { return `<div class="section-card"><div class="section-title">💊 Mes traitements</div><div class="form-row"><div class="form-group"><input type="text" id="treatmentNom" placeholder="Médicament"></div><div class="form-group"><input type="text" id="treatmentDosage" placeholder="Dosage"></div><div class="form-group"><input type="text" id="treatmentFrequence" placeholder="Fréquence"></div></div><button onclick="addTreatment()">➕ Ajouter</button></div><div class="section-card"><div class="table-responsive"><table><thead><tr><th>Médicament</th><th>Dosage</th><th>Fréquence</th></tr></thead><tbody>${appData.traitements.map(t => `<tr><td>${t.nom}</td><td>${t.dosage}</td><td>${t.frequence}</td></tr>`).join('')}</tbody></table></div></div>`; }
+
+        // ============ MODULE IoT ============
+        function toggleIoTDevice(id) { const d = appData.iotDevices.find(d => d.id === id); if(d) { d.connected = !d.connected; renderIoT(); } }
+        function renderIoT() { return `<div class="section-card"><div class="section-title">📡 Objets connectés</div><div class="device-grid">${appData.iotDevices.map(d => `<div class="device-card ${d.connected?'connected':''}" onclick="toggleIoTDevice(${d.id})"><div class="device-icon">${d.icon}</div><div><strong>${d.name}</strong></div><div class="device-value">${d.last_value}</div><div>${d.connected?'✅ Connecté':'🔴 Déconnecté'}</div></div>`).join('')}</div></div>`; }
+
+        // ============ MODULE TÉLÉMÉDECINE ============
+        function renderTelemedecine() { return `<div class="section-card"><div class="section-title">🎥 Consultation à distance</div><div style="text-align:center;padding:40px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:15px;color:white;"><div style="font-size:64px;">📹</div><button onclick="alert('📹 Appel vidéo démarré')" style="background:white;color:#667eea;font-size:18px;padding:15px 30px;">📞 Démarrer un appel</button></div></div>`; }
+
+        // ============ MODULE RENDEZ-VOUS ============
+        function addAppointment() { const date = document.getElementById('appointmentDate').value; if(date){ appData.rendez_vous.push({id:Date.now(), patient_id:currentUser.id, medecin_nom:'Dr. Lambert Marie', date, motif:document.getElementById('appointmentReason').value||'Consultation', status:'confirmé'}); showPage('appointments'); } }
+        function renderAppointments() { return `<div class="section-card"><div class="section-title">📅 Prendre rendez-vous</div><div class="form-row"><div class="form-group"><label>Date et heure</label><input type="datetime-local" id="appointmentDate"></div><div class="form-group"><label>Motif</label><input type="text" id="appointmentReason" placeholder="Motif"></div></div><button onclick="addAppointment()">📆 Réserver</button></div><div class="section-card"><div class="table-responsive"><table><thead><tr><th>Médecin</th><th>Date</th><th>Motif</th><th>Statut</th></tr></thead><tbody>${appData.rendez_vous.map(r => `<tr><td>${r.medecin_nom}</td><td>${new Date(r.date).toLocaleString()}</td><td>${r.motif}</td><td>${r.status}</td></tr>`).join('')}</tbody></table></div></div>`; }
+
+        // ============ MODULE RAPPORTS ============
+        let currentReportData = [];
+        function generateReport() { const type=document.getElementById('reportType').value; let data = type==='measures'?appData.mesures:appData.symptomes; currentReportData = data; document.getElementById('reportResults').innerHTML = `<div id="reportContent"><div class="section-card"><div class="section-title">📊 Rapport</div><div class="table-responsive"><table><thead><tr><th>Date</th><th>Données</th></tr></thead><tbody>${data.map(d => `<tr><td>${d.date}</td><td>${JSON.stringify(d)}</td></tr>`).join('')}</tbody></table></div></div></div>`; }
+        function exportToPDF() { const el=document.getElementById('reportContent'); if(el) html2pdf().from(el).set({filename:'rapport.pdf'}).save(); else alert('Générez d\'abord un rapport'); }
+        function exportToExcel() { if(currentReportData.length){ const ws=XLSX.utils.json_to_sheet(currentReportData); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Rapport'); XLSX.writeFile(wb,`rapport.xlsx`); } else alert('Générez d\'abord un rapport'); }
+        function renderReports() { return `<div class="section-card"><div class="section-title">📄 Générer un rapport</div><div class="filter-bar"><div class="form-group"><label>Type</label><select id="reportType"><option value="measures">Mesures</option><option value="symptoms">Symptômes</option></select></div><div class="form-group"><button onclick="generateReport()" style="margin-top:22px;">🔍 Générer</button></div></div><div class="export-buttons"><button onclick="exportToPDF()">📄 PDF</button><button onclick="exportToExcel()">📊 Excel</button></div></div><div id="reportResults"></div>`; }
+
+        // ============ MODULE IA PRÉDICTIVE ============
+        function renderPredictive() { const riskScore = Math.floor(Math.random() * 100); return `<div class="section-card"><div class="section-title">🤖 Analyse IA prédictive</div><div class="stats-grid"><div class="stat-card"><div><h4>Score de risque</h4><div class="stat-value">${riskScore}%</div></div></div></div><div class="alert alert-${riskScore<30?'success':riskScore<60?'warning':'danger'}"><strong>🔮 Prédiction:</strong> Risque de complication: ${riskScore}%<br>Recommandation: ${riskScore<30?'Suivi normal':riskScore<60?'Surveillance renforcée':'Consultation urgente'}</div></div>`; }
+
+        // ============ MODULE UTILISATEURS ============
+        function renderUsers() { if(currentUser.role !== ROLES.ADMIN) return `<div class="alert alert-danger">⛔ Accès réservé aux administrateurs</div>`; return `<div class="section-card"><div class="section-title">👥 Gestion des utilisateurs</div><div class="table-responsive"></table><thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Province</th></tr></thead><tbody>${users.map(u => `<tr><td>${u.prenom} ${u.nom}</td><td>${u.email}</td><td>${u.role}</td><td>${u.province||'N/A'}</td></tr>`).join('')}</tbody></table></div></div>`; }
+
+        // ============ MODULE PROFIL ============
+        function renderProfile() { return `<div class="section-card"><div class="section-title">👤 Mon profil</div><div class="form-group"><label>Nom</label><input type="text" id="profileNom" value="${currentUser.nom}"></div><div class="form-group"><label>Prénom</label><input type="text" id="profilePrenom" value="${currentUser.prenom}"></div><div class="form-group"><label>Email</label><input type="email" id="profileEmail" value="${currentUser.email}"></div><div class="form-group"><label>Téléphone</label><input type="tel" id="profileTel" value="${currentUser.telephone||''}"></div><div class="form-group"><label>Province</label><input type="text" value="${currentUser.province||''}" disabled></div><button onclick="updateProfile()">💾 Mettre à jour</button></div>`; }
+        function updateProfile() { currentUser.nom=document.getElementById('profileNom').value; currentUser.prenom=document.getElementById('profilePrenom').value; currentUser.email=document.getElementById('profileEmail').value; currentUser.telephone=document.getElementById('profileTel').value; alert('✅ Profil mis à jour'); renderMainApp(); }
+
+        // ============ MODULE KOBO ============
+        function renderKoboPage() { return `<div class="section-card"><div class="section-title">📋 KoboToolbox - Formulaires santé</div><div class="alert alert-info">🔗 Connectez MediTrack à KoboToolbox</div><div class="export-buttons"><button onclick="openKoboModal()">⚙️ Configurer</button><button onclick="syncWithKobo()" class="btn-success">🔄 Synchroniser</button><button onclick="testKoboConnection()" class="btn-info">🔌 Tester connexion</button></div></div><div class="section-card"><div class="section-title">📝 Dernières soumissions</div><div class="table-responsive"><table><thead><tr><th>Date</th><th>Tension</th><th>Glycémie</th><th>Statut</th></tr></thead><tbody>${appData.koboSubmissions.map(s => `<tr><td>${s.date}</td><td>${s.data.tension}</td><td>${s.data.glycemie}</td><td><span class="status-badge status-synced">✓ Synchro</span></td></tr>`).join('')}</tbody></table></div></div>`; }
+        function syncWithKobo() { alert('🔄 Synchronisation avec KoboToolbox...'); const newSub = { id: Date.now(), submission_id: 'kobo_'+Date.now(), patient_id: currentUser.id, date: new Date().toISOString().split('T')[0], type: 'consultation', data: { tension: '125/82', glycemie: '1.18', poids: '72.5' }, status: 'synced' }; appData.koboSubmissions.unshift(newSub); showPage('kobo'); }
+        function testKoboConnection() { alert('🔌 Test de connexion à KoboToolbox\n\nPour une intégration complète, configurez votre token API et webhook.'); }
+        function openKoboModal() { document.getElementById('koboModal').classList.add('active'); document.getElementById('koboApiToken').value = koboConfig.apiToken; document.getElementById('koboFormId').value = koboConfig.formId; }
+        function closeKoboModal() { document.getElementById('koboModal').classList.remove('active'); }
+        function saveKoboConfig() { koboConfig.apiToken = document.getElementById('koboApiToken').value; koboConfig.formId = document.getElementById('koboFormId').value; koboConfig.webhookUrl = document.getElementById('koboWebhookUrl')?.value || koboConfig.webhookUrl; localStorage.setItem('kobo_api_token', koboConfig.apiToken); alert('✅ Configuration sauvegardée'); closeKoboModal(); }
+
+        // ============ EXPOSITION GLOBALE ============
+        window.toggleSidebar = () => document.getElementById('sidebar')?.classList.toggle('open');
+        window.toggleSymptom = toggleSymptom; window.addSymptom = addSymptom; window.addMeasure = addMeasure; window.addTreatment = addTreatment;
+        window.addAppointment = addAppointment; window.toggleIoTDevice = toggleIoTDevice; window.generateReport = generateReport;
+        window.exportToPDF = exportToPDF; window.exportToExcel = exportToExcel; window.updateProfile = updateProfile; window.showPage = showPage;
+        window.syncWithKobo = syncWithKobo; window.testKoboConnection = testKoboConnection; window.openKoboModal = openKoboModal;
+        window.closeKoboModal = closeKoboModal; window.saveKoboConfig = saveKoboConfig; window.addGPSLocation = addGPSLocation;
+        window.filterByProvince = filterByProvince;
+
+        initApp();
+    </script>
+</body>
+</html>

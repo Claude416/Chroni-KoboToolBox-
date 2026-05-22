@@ -1,2 +1,0 @@
-# Chroni-KoboToolBox-
-App
